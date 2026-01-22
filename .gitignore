@@ -1,0 +1,94 @@
+# ==================== C++ 相关（核心）====================
+# 编译产物（二进制/目标文件）
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.out
+*.exe
+# C++ 编译中间文件
+*.cmake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+build/
+# 编译日志/临时文件
+*.log
+*.tmp
+*.swp
+# 自动生成的头文件/源文件
+*.generated.h
+*.generated.cpp
+# Eigen 或第三方库的编译缓存（可选）
+eigen_build/
+
+# ==================== Python 相关（核心）====================
+# 字节码文件
+__pycache__/
+*.py[cod]
+*$py.class
+# 虚拟环境
+venv/
+env/
+env3/
+.venv/
+# 依赖缓存/安装文件
+*.egg-info/
+dist/
+build/
+*.whl
+# 包管理文件（可选保留，按需注释）
+# requirements.txt  # 建议保留，注释掉则忽略
+# pyproject.toml    # 建议保留，注释掉则忽略
+# 缓存/日志文件
+.pytest_cache/
+.coverage
+htmlcov/
+*.pyd
+# Jupyter Notebook 缓存
+.ipynb_checkpoints/
+# Python 环境配置
+.python-version
+!assets/*.png  # 例外：保留 assets 文件夹下的图片（按需调整）
+
+# ==================== 通用忽略规则 ====================
+# 系统临时文件
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+# 编辑器配置（VSCode/Vim/CLion）
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+# 版本控制/备份文件
+*.bak
+*.backup
+*.orig
+# 日志文件
+logs/
+*.log
+# 环境变量/敏感配置（必忽略！）
+.env
+.env.local
+*.secret
+# git 本身的缓存（避免递归忽略）
+!.gitignore  # 确保 .gitignore 本身不被忽略
+
+# ==================== 项目专属（针对 arm_robot）====================
+# C++ 扩展模块产物
+cpp/arm_robot_cpp.so
+cpp/build/
+# Python 后端缓存
+python/*.pyc
+python/__pycache__/
+# 测试临时文件
+test_*.log
+test_output/
+# 机器人控制日志
+robot_logs/
