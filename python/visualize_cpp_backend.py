@@ -49,12 +49,13 @@ import math
 
 
 class HumanVisualizer:
-    def __init__(self, body_dh, left_hand_dh, right_hand_dh, theta_limit=None):
+    def __init__(self, body_dh, left_hand_dh, right_hand_dh, head_dh, theta_limit=None):
         # 创建C++ Human对象
         if theta_limit is None:
-            self.human_cpp = arm_robot.Human(body_dh, left_hand_dh, right_hand_dh)
+            self.human_cpp = arm_robot.Human(body_dh, left_hand_dh, right_hand_dh, head_dh)
         else:
-            self.human_cpp = arm_robot.Human(body_dh, left_hand_dh, right_hand_dh, theta_limit)
+            self.human_cpp = arm_robot.Human(body_dh, left_hand_dh, right_hand_dh, head_dh, theta_limit)
+
 
         # 创建3D图形
         self.fig = plt.figure('Arm Robot Visualization with C++ Backend')
@@ -66,6 +67,7 @@ class HumanVisualizer:
         self.body_num_joints = len(body_dh)
         self.left_hand_num_joints = len(left_hand_dh)
         self.right_hand_num_joints = len(right_hand_dh)
+        self.head_num_joints = len(head_dh)
         
         # 当前关节角度
         self.current_theta = [0.0] * len(self.human_cpp.get_all_theta())
@@ -151,7 +153,6 @@ class HumanVisualizer:
             tf = i
             base_origin.append(tf[:3, 3].copy())
             self.draw_coord(tf, self.ax)
-
         # 绘制连杆之间的连接线
         for i in range(len(base_origin) - 1):
             x = [base_origin[i][0], base_origin[i + 1][0]]
@@ -275,8 +276,11 @@ class HumanVisualizer:
             0.547 + mat_value[5]
         )
         
+        q0_body = [0.0] * self.body_num_joints
+        all_theta = self.human_cpp.get_all_theta()
+        q0_hand = all_theta[self.body_num_joints:self.body_num_joints+self.left_hand_num_joints]
         # 调用C++端的controlHand方法控制左臂
-        result = self.human_cpp.control_hand(aim_mat, "left")
+        result = self.human_cpp.control_hand(aim_mat, "left", q0 = q0_body + q0_hand)
         print(result[0])
         if result[0]:  # 如果求解成功
             theta_end = result[1][-1]  # 获取最终角度
@@ -310,6 +314,17 @@ class HumanVisualizer:
             self.human_cpp.flash_theta(current_theta)
 
         #----------------------------------------------------
+
+
+        def draw_other():
+            # 绘制目标位置
+            self.draw_coord(aim_mat, self.ax)
+            # 计算并绘制右臂目标位置在世界坐标系中的实际位置
+            self.draw_coord(aim_mat_right, self.ax)
+
+        self.show(draw_other)
+    
+    def show(self, others = None):
         # 保存当前视图限制和视角
         try:
             xlim = self.ax.get_xlim()
@@ -333,11 +348,13 @@ class HumanVisualizer:
         body_num_joints = self.body_num_joints
         left_hand_num_joints = self.left_hand_num_joints
         right_hand_num_joints = self.right_hand_num_joints
+        head_num_joint = self.head_num_joints
         
         # 分别获取各部分的变换
         body_tf = all_tf[:body_num_joints+1]
-        left_hand_tf = all_tf[len(body_tf):len(body_tf)+left_hand_num_joints+1]
-        right_hand_tf = all_tf[-right_hand_num_joints:]
+        left_hand_tf = all_tf[body_num_joints+1:body_num_joints+left_hand_num_joints+2]
+        right_hand_tf = all_tf[body_num_joints+left_hand_num_joints+2:body_num_joints+left_hand_num_joints+right_hand_num_joints+3]
+        head_tf = all_tf[-head_num_joint-1:]
 
         # 绘制身体
         body_base = self.human_cpp.get_part_base("body")
@@ -351,10 +368,12 @@ class HumanVisualizer:
         right_base = self.human_cpp.get_part_base("right")
         self.draw(right_base, right_hand_tf)
 
-        # 绘制目标位置
-        self.draw_coord(aim_mat, self.ax)
-        # 计算并绘制右臂目标位置在世界坐标系中的实际位置
-        self.draw_coord(aim_mat_right, self.ax)
+        # 绘制头
+        head_base = self.human_cpp.get_part_base("head")
+        self.draw(head_base, head_tf)
+
+        if others != None:
+            others()
 
         # 设置坐标轴范围
         self.ax.set_xlim([-self.show_len/2, self.show_len/2])
@@ -377,6 +396,7 @@ class HumanVisualizer:
 
         # 更新图形
         plt.draw()
+
 
     def create_homogeneous_matrix(self, rx, ry, rz, x, y, z):
         """从欧拉角和平移向量创建齐次变换矩阵"""
@@ -408,68 +428,8 @@ class HumanVisualizer:
         # 更新C++ Human对象中的theta值
         self.human_cpp.flash_theta(theta_values)
 
-        # 保存当前视图限制和视角
-        try:
-            xlim = self.ax.get_xlim()
-            ylim = self.ax.get_ylim()
-            zlim = self.ax.get_zlim()
-            elev, azim = self.ax.elev, self.ax.azim  # 保存仰角和方位角
-        except:
-            # 如果无法获取当前视图参数，使用默认值
-            xlim = [-self.show_len/2, self.show_len/2]
-            ylim = [-self.show_len/2, self.show_len/2]
-            zlim = [0, self.show_len]
-            elev, azim = 30, 45
+        self.show()
 
-        # 清除之前的绘图
-        self.ax.clear()
-        
-        # 获取所有变换
-        all_tf = self.human_cpp.get_all_tf()
-        
-        # 使用预先计算的关节数
-        body_num_joints = self.body_num_joints
-        left_hand_num_joints = self.left_hand_num_joints
-        right_hand_num_joints = self.right_hand_num_joints
-        
-        # 分别获取各部分的变换
-        body_tf = all_tf[:body_num_joints+1]
-        left_hand_tf = all_tf[len(body_tf):len(body_tf)+left_hand_num_joints+1]
-        right_hand_tf = all_tf[-right_hand_num_joints:]
-
-        # 绘制身体
-        body_base = self.human_cpp.get_part_base("body")
-        self.draw(body_base, body_tf[1:])
-        
-        # 绘制左手
-        left_base = self.human_cpp.get_part_base("left")
-        self.draw(left_base, left_hand_tf)
-        
-        # 绘制右手
-        right_base = self.human_cpp.get_part_base("right")
-        self.draw(right_base, right_hand_tf)
-        
-        # 设置坐标轴范围
-        self.ax.set_xlim([-self.show_len/2, self.show_len/2])
-        self.ax.set_ylim([-self.show_len/2, self.show_len/2])
-        self.ax.set_zlim([0, self.show_len])
-        
-        # 设置标签
-        self.ax.set_xlabel('X')
-        self.ax.set_ylabel('Y')
-        self.ax.set_zlabel('Z')
-
-        # 恢复视图限制和视角
-        try:
-            self.ax.set_xlim(xlim)
-            self.ax.set_ylim(ylim)
-            self.ax.set_zlim(zlim)
-            self.ax.view_init(elev=elev, azim=azim)  # 恢复视角
-        except:
-            pass
-
-        # 更新图形
-        plt.draw()
 
     def pad_or_truncate_theta(self, theta_list, target_size):
         """将theta列表填充或截断到目标大小"""
@@ -512,8 +472,13 @@ def main():
         [1.5707, 0.0, 0.0, 1.5707, 0],
         [-1.5707, 0.08, 0.0, 1.5707, 0]]
     
+    head_dh = [
+        [0.0, 0.0, 0.2, 0.0, 0],
+        [1.57, 0.0, 0.0, 0.0, 0],
+    ]
+    
     # 创建可视化器
-    visualizer = HumanVisualizer(body_dh, left_hand_dh, right_hand_dh)
+    visualizer = HumanVisualizer(body_dh, left_hand_dh, right_hand_dh, head_dh)
     
     # 选择要显示的模式
     import sys

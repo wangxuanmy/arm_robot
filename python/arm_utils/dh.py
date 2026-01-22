@@ -245,7 +245,6 @@ def cal_qpos(start_theta, aim_matrix, dh_type, get_dh_mat, get_theta_limit, igno
             dq0 = q0 - now_theta
             zeros_dq = (np.eye(len(now_theta)) - np.linalg.pinv(j0) @ j0) @ (kn * dq0)
 
-
         dq = damped_least_squares(j0) @ v
 
         new_theta = np.array(now_theta) + dq + zeros_dq

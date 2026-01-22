@@ -12,11 +12,13 @@ PYBIND11_MODULE(arm_robot_cpp, m) {
         .def(py::init<const std::vector<std::vector<double>>&,
                      const std::vector<std::vector<double>>&,
                      const std::vector<std::vector<double>>&,
+                     const std::vector<std::vector<double>>&,
                      const Eigen::MatrixXd&,
                      const Eigen::MatrixXd&>(),
              py::arg("body_dh"), 
              py::arg("left_hand_dh"), 
              py::arg("right_hand_dh"),
+             py::arg("head_dh"),
              py::arg("theta_limit_input") = Eigen::MatrixXd(),
              py::arg("base_offset") = Eigen::MatrixXd())
         .def("flash_theta", &arm_robot::Human::flashTheta)
