@@ -5,7 +5,7 @@ LDFLAGS =
 
 # 目录设置
 SRC_DIR = ./arm_utils
-PLANNER_DIR = .
+PLANNER_DIR = ./plan
 BUILD_DIR = build
 TEST_DIR = .
 
@@ -18,7 +18,7 @@ INCLUDES = -I$(SRC_DIR) -I$(PLANNER_DIR) -I$(EIGEN_INCLUDE) $(PYBIND11_INCLUDE)
 
 # 源文件和对象文件
 SOURCES = $(wildcard $(SRC_DIR)/*.cpp)
-PLANNER_SOURCES = $(wildcard $(PLANNER_DIR)/Map3D.cpp $(PLANNER_DIR)/AStar3D.cpp $(PLANNER_DIR)/PathSmoother.cpp $(PLANNER_DIR)/PathPlanner3D.cpp)
+PLANNER_SOURCES = $(wildcard $(PLANNER_DIR)/Map3D.cpp $(PLANNER_DIR)/AStar3D.cpp $(PLANNER_DIR)/PathSmoother.cpp $(TEST_DIR)/PathPlanner3D.cpp)
 # 排除测试文件和Python绑定文件
 CPP_SOURCES = $(filter-out $(TEST_DIR)/test_%.cpp $(TEST_DIR)/test_astar3d.cpp $(TEST_DIR)/test_path_smoother.cpp $(TEST_DIR)/test_planner_full.cpp $(SRC_DIR)/pybind_interface.cpp, $(SOURCES))
 OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(CPP_SOURCES))

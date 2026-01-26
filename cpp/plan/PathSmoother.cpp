@@ -70,8 +70,12 @@ std::vector<std::tuple<double, double, double>> PathSmoother::smooth_path_with_o
     // Then detect conflicts with obstacles
     auto conflict_points_info = detect_obstacle_conflicts(smoothed_path, map3d);
     
-    // Perform local resmoothing around conflict points
-    return _local_resmooth(smoothed_path, conflict_points_info, map3d);
+    // If there are conflicts, try to fix them with local resmoothing
+    if (!conflict_points_info.empty()) {
+        smoothed_path = _local_resmooth(smoothed_path, conflict_points_info, map3d);
+    }
+    
+    return smoothed_path;
 }
 
 std::vector<std::tuple<int, std::tuple<double, double, double>, std::tuple<double, double, double>>> 
@@ -285,6 +289,47 @@ std::vector<std::tuple<double, double, double>> PathSmoother::_local_resmooth(
         if (idx < static_cast<int>(smoothed_path.size()) && idx >= 0) {
             smoothed_path[idx] = free_point;
         }
+    }
+    
+    // Now apply a gentler smoothing to avoid sharp turns
+    // But only smooth points that are not at the ends
+    for (int iter = 0; iter < 3; ++iter) {  // Only a few iterations to prevent over-smoothing
+        std::vector<std::tuple<double, double, double>> new_path = smoothed_path;
+        
+        for (size_t i = 1; i < smoothed_path.size() - 1; ++i) {
+            // Check if this point is in conflict again after relocation
+            double x = std::get<0>(smoothed_path[i]);
+            double y = std::get<1>(smoothed_path[i]);
+            double z = std::get<2>(smoothed_path[i]);
+            
+            if (!map3d->isObstacle(x, y, z)) {
+                // Apply gentle smoothing to non-conflicting points
+                double x_i = std::get<0>(smoothed_path[i]);
+                double y_i = std::get<1>(smoothed_path[i]);
+                double z_i = std::get<2>(smoothed_path[i]);
+                
+                double x_prev = std::get<0>(smoothed_path[i-1]);
+                double y_prev = std::get<1>(smoothed_path[i-1]);
+                double z_prev = std::get<2>(smoothed_path[i-1]);
+                
+                double x_next = std::get<0>(smoothed_path[i+1]);
+                double y_next = std::get<1>(smoothed_path[i+1]);
+                double z_next = std::get<2>(smoothed_path[i+1]);
+                
+                // Use a very small smoothing factor to avoid creating new conflicts
+                double sf = 0.1;  // Much smaller to prevent excessive deviation
+                double new_x = x_i + sf * (x_prev + x_next - 2*x_i);
+                double new_y = y_i + sf * (y_prev + y_next - 2*y_i);
+                double new_z = z_i + sf * (z_prev + z_next - 2*z_i);
+                
+                // Verify this new point doesn't cause an obstacle conflict
+                if (!map3d->isObstacle(new_x, new_y, new_z)) {
+                    new_path[i] = std::make_tuple(new_x, new_y, new_z);
+                }
+            }
+        }
+        
+        smoothed_path = new_path;
     }
     
     return smoothed_path;
