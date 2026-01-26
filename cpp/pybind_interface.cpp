@@ -2,6 +2,7 @@
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
 #include "darwin.h"
+#include "PathPlanner3D.h"
 
 namespace py = pybind11;
 
@@ -43,4 +44,14 @@ PYBIND11_MODULE(arm_robot_cpp, m) {
         .def("control_part_v", &arm_robot::Human::controlPartV,
              py::arg("aim_v"), 
              py::arg("part_name") = std::string("body"));
+
+    // PathPlanner3D binding
+    py::class_<PathPlanner3D>(m, "PathPlanner3D")
+        .def(py::init<int, int, int, double, double, double, double>(),
+             py::arg("width"), py::arg("height"), py::arg("depth"), 
+             py::arg("resolution"), py::arg("origin_x") = 0.0, 
+             py::arg("origin_y") = 0.0, py::arg("origin_z") = 0.0)
+        .def("planWithObstacles", &PathPlanner3D::planWithObstacles,
+             py::arg("start"), py::arg("goal"), py::arg("obstacles"), 
+             py::arg("useSmoothing") = true);
 }
