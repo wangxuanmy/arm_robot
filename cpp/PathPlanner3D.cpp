@@ -31,7 +31,7 @@ PathPlanner3D::planWithObstacles(
     // 如果需要平滑，则对路径进行平滑处理
     auto smoothedPath = rawPath;
     if (useSmoothing) {
-        smoothedPath = pathSmoother_->smooth_path_with_obstacle_avoidance(rawPath, map3d_, 0.5, 10);
+        smoothedPath = pathSmoother_->smoothPathWithObstacleAvoidance(rawPath, map3d_, 0.5, 10);
     }
     
     return std::make_pair(rawPath, smoothedPath);

@@ -18,7 +18,7 @@ public:
      * @param num_points 输出路径点的数量，如果为None则自动计算
      * @return 平滑后的路径点列表
      */
-    std::vector<std::tuple<double, double, double>> smooth_path(
+    std::vector<std::tuple<double, double, double>> smoothPath(
         const std::vector<std::tuple<double, double, double>>& path,
         double smoothing_factor = 0.5,
         int num_points = -1);
@@ -34,7 +34,7 @@ public:
      * @param max_iterations 最大迭代次数
      * @return 平滑且避开障碍物的路径点列表
      */
-    std::vector<std::tuple<double, double, double>> smooth_path_with_obstacle_avoidance(
+    std::vector<std::tuple<double, double, double>> smoothPathWithObstacleAvoidance(
         const std::vector<std::tuple<double, double, double>>& path,
         std::shared_ptr<Map3D> map3d,
         double smoothing_factor = 0.5,
@@ -51,7 +51,7 @@ private:
      * @return 冲突信息列表，包含(索引, 冲突点, 原始点)
      */
     std::vector<std::tuple<int, std::tuple<double, double, double>, std::tuple<double, double, double>>> 
-    detect_obstacle_conflicts(
+    detectObstacleConflicts(
         const std::vector<std::tuple<double, double, double>>& path,
         std::shared_ptr<Map3D> map3d);
 
@@ -62,7 +62,7 @@ private:
      * @param map3d 3D地图对象
      * @return 优化后的路径点列表
      */
-    std::vector<std::tuple<double, double, double>> _optimize_straight_lines(
+    std::vector<std::tuple<double, double, double>> optimizeStraightLines(
         const std::vector<std::tuple<double, double, double>>& path,
         std::shared_ptr<Map3D> map3d);
 
@@ -75,7 +75,7 @@ private:
      * @param num_check_points 检查点的数量
      * @return 如果直线上无障碍物返回True，否则返回False
      */
-    bool _is_line_clear(
+    bool IsLineClear(
         const std::tuple<double, double, double>& start,
         const std::tuple<double, double, double>& end,
         std::shared_ptr<Map3D> map3d,
@@ -88,7 +88,7 @@ private:
      * @param num_points 输出路径点的数量
      * @return 线性插值后的路径点列表
      */
-    std::vector<std::tuple<double, double, double>> _linear_interpolate_path(
+    std::vector<std::tuple<double, double, double>> LinearInterpolatePath(
         const std::vector<std::tuple<double, double, double>>& path,
         int num_points);
 
@@ -101,7 +101,7 @@ private:
      * @param safety_distance 安全距离
      * @return 无障碍点坐标
      */
-    std::tuple<double, double, double> _find_free_point_heuristic(
+    std::tuple<double, double, double> findFreePointHeuristic(
         const std::tuple<double, double, double>& point,
         const std::tuple<double, double, double>& original_point,
         std::shared_ptr<Map3D> map3d,
@@ -115,7 +115,7 @@ private:
      * @param safety_distance 安全距离
      * @return 无障碍点坐标
      */
-    std::tuple<double, double, double> _find_free_point(
+    std::tuple<double, double, double> findFreePoint(
         const std::tuple<double, double, double>& point,
         std::shared_ptr<Map3D> map3d,
         double safety_distance);
@@ -128,7 +128,7 @@ private:
      * @param map3d 地图对象
      * @return 局部再平滑后的路径
      */
-    std::vector<std::tuple<double, double, double>> _local_resmooth(
+    std::vector<std::tuple<double, double, double>> LocalResmooth(
         const std::vector<std::tuple<double, double, double>>& path,
         const std::vector<std::tuple<int, std::tuple<double, double, double>, std::tuple<double, double, double>>>& conflict_points_info,
         std::shared_ptr<Map3D> map3d);

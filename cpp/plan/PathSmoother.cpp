@@ -7,7 +7,7 @@
 
 PathSmoother::PathSmoother() {}
 
-std::vector<std::tuple<double, double, double>> PathSmoother::smooth_path(
+std::vector<std::tuple<double, double, double>> PathSmoother::smoothPath(
     const std::vector<std::tuple<double, double, double>>& path,
     double smoothing_factor,
     int num_points) {
@@ -52,7 +52,7 @@ std::vector<std::tuple<double, double, double>> PathSmoother::smooth_path(
     return smoothed_path;
 }
 
-std::vector<std::tuple<double, double, double>> PathSmoother::smooth_path_with_obstacle_avoidance(
+std::vector<std::tuple<double, double, double>> PathSmoother::smoothPathWithObstacleAvoidance(
     const std::vector<std::tuple<double, double, double>>& path,
     std::shared_ptr<Map3D> map3d,
     double smoothing_factor,
@@ -65,21 +65,21 @@ std::vector<std::tuple<double, double, double>> PathSmoother::smooth_path_with_o
     }
     
     // First, perform basic smoothing
-    auto smoothed_path = smooth_path(path, smoothing_factor, num_points);
+    auto smoothed_path = smoothPath(path, smoothing_factor, num_points);
     
     // Then detect conflicts with obstacles
-    auto conflict_points_info = detect_obstacle_conflicts(smoothed_path, map3d);
+    auto conflict_points_info = detectObstacleConflicts(smoothed_path, map3d);
     
     // If there are conflicts, try to fix them with local resmoothing
     if (!conflict_points_info.empty()) {
-        smoothed_path = _local_resmooth(smoothed_path, conflict_points_info, map3d);
+        smoothed_path = LocalResmooth(smoothed_path, conflict_points_info, map3d);
     }
     
     return smoothed_path;
 }
 
 std::vector<std::tuple<int, std::tuple<double, double, double>, std::tuple<double, double, double>>> 
-PathSmoother::detect_obstacle_conflicts(
+PathSmoother::detectObstacleConflicts(
     const std::vector<std::tuple<double, double, double>>& path,
     std::shared_ptr<Map3D> map3d) {
     
@@ -99,14 +99,14 @@ PathSmoother::detect_obstacle_conflicts(
     return conflicts;
 }
 
-std::vector<std::tuple<double, double, double>> PathSmoother::_optimize_straight_lines(
+std::vector<std::tuple<double, double, double>> PathSmoother::optimizeStraightLines(
     const std::vector<std::tuple<double, double, double>>& path,
     std::shared_ptr<Map3D> map3d) {
     // Simplified implementation - just return the original path
     return path;
 }
 
-bool PathSmoother::_is_line_clear(
+bool PathSmoother::IsLineClear(
     const std::tuple<double, double, double>& start,
     const std::tuple<double, double, double>& end,
     std::shared_ptr<Map3D> map3d,
@@ -129,7 +129,7 @@ bool PathSmoother::_is_line_clear(
     return true;
 }
 
-std::vector<std::tuple<double, double, double>> PathSmoother::_linear_interpolate_path(
+std::vector<std::tuple<double, double, double>> PathSmoother::LinearInterpolatePath(
     const std::vector<std::tuple<double, double, double>>& path,
     int num_points) {
     if (path.empty()) {
@@ -204,7 +204,7 @@ std::vector<std::tuple<double, double, double>> PathSmoother::_linear_interpolat
     return interpolated_path;
 }
 
-std::tuple<double, double, double> PathSmoother::_find_free_point_heuristic(
+std::tuple<double, double, double> PathSmoother::findFreePointHeuristic(
     const std::tuple<double, double, double>& point,
     const std::tuple<double, double, double>& original_point,
     std::shared_ptr<Map3D> map3d,
@@ -262,14 +262,14 @@ std::tuple<double, double, double> PathSmoother::_find_free_point_heuristic(
     return point;
 }
 
-std::tuple<double, double, double> PathSmoother::_find_free_point(
+std::tuple<double, double, double> PathSmoother::findFreePoint(
     const std::tuple<double, double, double>& point,
     std::shared_ptr<Map3D> map3d,
     double safety_distance) {
-    return _find_free_point_heuristic(point, point, map3d, safety_distance);
+    return findFreePointHeuristic(point, point, map3d, safety_distance);
 }
 
-std::vector<std::tuple<double, double, double>> PathSmoother::_local_resmooth(
+std::vector<std::tuple<double, double, double>> PathSmoother::LocalResmooth(
     const std::vector<std::tuple<double, double, double>>& path,
     const std::vector<std::tuple<int, std::tuple<double, double, double>, std::tuple<double, double, double>>>& conflict_points_info,
     std::shared_ptr<Map3D> map3d) {
@@ -283,7 +283,7 @@ std::vector<std::tuple<double, double, double>> PathSmoother::_local_resmooth(
         auto original_point = std::get<2>(conflict_info);
         
         // Find a free point near the conflict point
-        auto free_point = _find_free_point_heuristic(conflict_point, original_point, map3d, map3d->getResolution() * 2.0);
+        auto free_point = findFreePointHeuristic(conflict_point, original_point, map3d, map3d->getResolution() * 2.0);
         
         // Replace the conflict point with the free point
         if (idx < static_cast<int>(smoothed_path.size()) && idx >= 0) {
