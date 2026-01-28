@@ -152,8 +152,8 @@ public:
 
 
     std::vector<std::vector<double>> smoothJointAngles(const std::vector<std::vector<double>>& thetas,
-            const std::vector<double>& theta_min,
-            const std::vector<double>& theta_max,
+            const Eigen::MatrixXd& theta_min,
+            const Eigen::MatrixXd& theta_max,
             double max_threshold);
 
     void syncBodyAndCopy(); 
@@ -170,10 +170,10 @@ public:
     std::vector<double> moveViaVelocity(const std::string& part_name, Eigen::VectorXd vel);
 
     // 双臂镜像同步
-    std::pair<bool, std::vector<std::vector<double>>> cooperationJoint(const std::string& main_name, const std::string& sub_name, const std::vector<double>& theta_input);
+    std::pair<bool, std::vector<std::vector<double>>> cooperationJoint(const std::string& main_name, const std::string& sub_name, const std::vector<std::vector<double>>& theta_input);
     
     // 身体动 双臂保持不动
-    std::pair<bool, std::map<std::string, std::vector<std::vector<double>>>> cooperationBody(const std::vector<std::string>& sub_name, const std::vector<double>& theta_input);
+    std::pair<bool, std::map<std::string, std::vector<std::vector<double>>>> cooperationBody(const std::vector<std::string>& sub_name, const std::vector<std::vector<double>>& theta_input);
     
     // 关节插值
     std::vector<std::vector<double>> jointInterpolation(const std::vector<double>& thetas,

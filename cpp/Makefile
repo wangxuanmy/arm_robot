@@ -19,21 +19,24 @@ INCLUDES = -I$(SRC_DIR) -I$(PLANNER_DIR) -I$(EIGEN_INCLUDE) $(JSONCPP_INCLUDE) $
 
 # 源文件
 ARM_UTILS_SOURCES = $(wildcard $(SRC_DIR)/*.cpp)
-PLAN_SOURCES = $(wildcard $(PLANNER_DIR)/*.cpp)
+PLAN_SOURCES = $(wildcard $(PLANNER_DIR)/*.cpp) PathPlanner3D.cpp  # 添加PathPlanner3D.cpp
 ROBOT_CTRL_SOURCES = robot_ctrl.cpp
 EXAMPLE_SOURCES = example_robot_ctrl.cpp
+CACHE_TEST_SOURCES = test_protected_lfu_cache.cpp
 
 # 对象文件
 ARM_UTILS_OBJECTS = $(ARM_UTILS_SOURCES:.cpp=.o)
 PLAN_OBJECTS = $(PLAN_SOURCES:.cpp=.o)
 ROBOT_CTRL_OBJECTS = $(ROBOT_CTRL_SOURCES:.cpp=.o)
 EXAMPLE_OBJECTS = $(EXAMPLE_SOURCES:.cpp=.o)
+CACHE_TEST_OBJECTS = $(CACHE_TEST_SOURCES:.cpp=.o)
 
 # 在BUILD_DIR中放置对象文件
 ARM_UTILS_BUILD_OBJS = $(addprefix $(BUILD_DIR)/, $(notdir $(ARM_UTILS_OBJECTS)))
 PLAN_BUILD_OBJS = $(addprefix $(BUILD_DIR)/, $(notdir $(PLAN_OBJECTS)))
 ROBOT_CTRL_BUILD_OBJS = $(addprefix $(BUILD_DIR)/, $(notdir $(ROBOT_CTRL_OBJECTS)))
 EXAMPLE_BUILD_OBJS = $(addprefix $(BUILD_DIR)/, $(notdir $(EXAMPLE_OBJECTS)))
+CACHE_TEST_BUILD_OBJS = $(addprefix $(BUILD_DIR)/, $(notdir $(CACHE_TEST_OBJECTS)))
 
 # 可执行文件名称
 TARGET_LIB = libdarwin.a
@@ -46,8 +49,9 @@ TARGET_FULL_TEST = test_planner_full
 TARGET_EXE = darwin_example
 TARGET_ROBOT_CTRL_EXE = example_robot_ctrl
 TARGET_PYBIND = arm_robot_cpp.so
+TARGET_CACHE_TEST = test_protected_lfu_cache
 
-.PHONY: all clean test example pybind planner_test path_smoother_test full_test robot_ctrl_example
+.PHONY: all clean test example pybind planner_test path_smoother_test full_test robot_ctrl_example cache_test
 
 # 主要目标
 all: $(TARGET_LIB) $(TARGET_PLANNER_LIB) $(TARGET_ROBOT_CTRL_LIB) example robot_ctrl_example
@@ -58,15 +62,15 @@ $(BUILD_DIR):
 
 # 编译所有库
 $(TARGET_LIB): $(BUILD_DIR) $(ARM_UTILS_BUILD_OBJS)
-	ar rcs $@ $^
+	ar rcs $@ $(ARM_UTILS_BUILD_OBJS)
 	ranlib $@
 
 $(TARGET_PLANNER_LIB): $(BUILD_DIR) $(PLAN_BUILD_OBJS)
-	ar rcs $@ $^
+	ar rcs $@ $(PLAN_BUILD_OBJS)
 	ranlib $@
 
 $(TARGET_ROBOT_CTRL_LIB): $(BUILD_DIR) $(ROBOT_CTRL_BUILD_OBJS)
-	ar rcs $@ $^
+	ar rcs $@ $(ROBOT_CTRL_BUILD_OBJS)
 	ranlib $@
 
 # 编译对象文件到build目录
@@ -112,23 +116,30 @@ full_test: $(TARGET_PLANNER_LIB) $(TARGET_FULL_TEST)
 $(TARGET_FULL_TEST): $(BUILD_DIR)/test_planner_full.o $(TARGET_PLANNER_LIB)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $< -L. -lplanner
 
+# 编译并运行缓存测试
+cache_test: $(TARGET_LIB) $(TARGET_CACHE_TEST)
+	./$(TARGET_CACHE_TEST)
+
+$(TARGET_CACHE_TEST): $(CACHE_TEST_BUILD_OBJS) $(TARGET_LIB)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $< -L. -ldarwin
+
 # 编译并运行测试
 test: $(TARGET_LIB) $(TARGET_TEST)
 	./$(TARGET_TEST)
 
 $(TARGET_TEST): $(BUILD_DIR)/test_darwin.o $(TARGET_LIB)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $< -L. -ldarwin
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $< -L. -lplanner -ldarwin
 
 # 编译Python绑定
 pybind: $(TARGET_LIB) $(TARGET_PLANNER_LIB) $(TARGET_PYBIND)
 
-$(TARGET_PYBIND): pybind_interface.cpp $(TARGET_LIB) $(TARGET_PLANNER_LIB)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -shared -o $@ $< -L. -ldarwin -lplanner
+$(TARGET_PYBIND): pybind_interface.cpp $(TARGET_LIB) $(PLAN_BUILD_OBJS)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -shared -o $@ $< -L. -ldarwin -lplanner $(LDFLAGS)
 
 # 清理
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET_LIB) $(TARGET_PLANNER_LIB) $(TARGET_ROBOT_CTRL_LIB) $(TARGET_TEST) $(TARGET_ASTAR_TEST) $(TARGET_PATH_SMOOTHER_TEST) $(TARGET_FULL_TEST) $(TARGET_EXE) $(TARGET_ROBOT_CTRL_EXE) $(TARGET_PYBIND) *.csv
+	rm -rf $(BUILD_DIR) $(TARGET_LIB) $(TARGET_PLANNER_LIB) $(TARGET_ROBOT_CTRL_LIB) $(TARGET_TEST) $(TARGET_ASTAR_TEST) $(TARGET_PATH_SMOOTHER_TEST) $(TARGET_FULL_TEST) $(TARGET_EXE) $(TARGET_ROBOT_CTRL_EXE) $(TARGET_PYBIND) $(TARGET_CACHE_TEST) *.csv
 
 # 依赖关系
 $(ARM_UTILS_BUILD_OBJS): $(wildcard $(SRC_DIR)/*.hpp)
-$(PLAN_BUILD_OBJS): $(wildcard $(PLANNER_DIR)/*.h)
+$(PLAN_BUILD_OBJS): $(wildcard $(PLANNER_DIR)/*.h) PathPlanner3D.h
