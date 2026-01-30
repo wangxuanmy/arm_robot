@@ -8,14 +8,13 @@
 
 namespace arm_robot {
 
-// Forward declaration of the URDF processor and collision detector
-static std::shared_ptr<UrdfProcessor> urdf_processor_ = nullptr;
-static std::shared_ptr<CollisionDetector> collision_detector_ = nullptr;
-
 RobotCtrl::RobotCtrl(const std::string& json_config_path) {
     if (!json_config_path.empty()) {
         loadConfig(json_config_path);
     }
+
+    urdf_processor_ = std::make_shared<UrdfProcessor>();
+    collision_detector_ = std::make_shared<CollisionDetector>(urdf_processor_);
     initRobot();
 }
 
@@ -579,14 +578,13 @@ std::vector<std::vector<double>> RobotCtrl::jointInterpolation(const std::vector
 // Implementation of URDF-based collision detection methods
 
 bool RobotCtrl::loadUrdfModel(const std::string& urdf_file_path) {
-    urdf_collision_checker = std::make_unique<UrdfCollisionChecker>();
     
-    if (!urdf_collision_checker->loadModelFromFile(urdf_file_path)) {
+    if (!urdf_processor_->loadModelFromFile(urdf_file_path)) {
         std::cerr << "Failed to load URDF model from: " << urdf_file_path << std::endl;
         return false;
     }
     
-    if (!urdf_collision_checker->setupCollisionGeometries()) {
+    if (!urdf_processor_->setupCollisionGeometries()) {
         std::cerr << "Failed to set up collision geometries from URDF" << std::endl;
         return false;
     }
@@ -595,37 +593,37 @@ bool RobotCtrl::loadUrdfModel(const std::string& urdf_file_path) {
 }
 
 bool RobotCtrl::checkSelfCollision(const std::map<std::string, double>& joint_positions) {
-    if (!urdf_collision_checker) {
+    if (!urdf_processor_) {
         std::cerr << "URDF collision checker not initialized. Call loadUrdfModel first." << std::endl;
         return false;
     }
     
-    return urdf_collision_checker->checkSelfCollision(joint_positions);
+    return urdf_processor_->checkSelfCollision(joint_positions);
 }
 
 bool RobotCtrl::checkCollisionBetweenLinks(const std::string& link1_name, 
                                           const std::string& link2_name, 
                                           const std::map<std::string, double>& joint_positions) {
-    if (!urdf_collision_checker) {
+    if (!urdf_processor_) {
         std::cerr << "URDF collision checker not initialized. Call loadUrdfModel first." << std::endl;
         return false;
     }
     
-    return urdf_collision_checker->checkCollisionBetweenLinks(link1_name, link2_name, joint_positions);
+    return urdf_processor_->checkCollisionBetweenLinks(link1_name, link2_name, joint_positions);
 }
 
 bool RobotCtrl::checkEnvironmentCollision(const std::map<std::string, double>& joint_positions,
                                          const std::vector<std::vector<double>>& obstacles) {
-    if (!urdf_collision_checker) {
+    if (!urdf_processor_) {
         std::cerr << "URDF collision checker not initialized. Call loadUrdfModel first." << std::endl;
         return false;
     }
     
-    return urdf_collision_checker->checkEnvironmentCollision(joint_positions, obstacles);
+    return urdf_processor_->checkEnvironmentCollision(joint_positions, obstacles);
 }
 
 bool RobotCtrl::checkTrajectoryCollision(const std::vector<std::vector<double>>& trajectory) {
-    if (!urdf_collision_checker) {
+    if (!urdf_processor_) {
         std::cerr << "URDF collision checker not initialized. Call loadUrdfModel first." << std::endl;
         return false; // Assume no collision if not initialized
     }
