@@ -2,6 +2,7 @@
 #define ROBOT_CTRL_H
 
 #include "arm_utils/darwin.h"
+#include "arm_utils/body_base.h"
 #include "plan/Map3D.h"
 #include "plan/AStar3D.h"
 #include "plan/PathSmoother.h"
@@ -9,7 +10,11 @@
 #include <tuple>
 #include <string>
 #include <memory>
+#include <map>
+#include <Eigen/Dense>
 #include <jsoncpp/json/json.h>  // Using JsonCpp for JSON parsing
+#include "collision_detector.h"
+#include "urdf_processor.h"
 
 namespace arm_robot {
 
@@ -21,6 +26,10 @@ private:
     std::shared_ptr<Map3D> map3d_;
     std::shared_ptr<AStar3D> path_planner_;
     std::shared_ptr<PathSmoother> path_smoother_;
+    
+    // URDF-based collision detection components
+    std::shared_ptr<arm_robot::UrdfProcessor> urdf_processor_;
+    std::shared_ptr<arm_robot::CollisionDetector> collision_detector_;
     
     // Configuration data loaded from JSON
     std::vector<std::vector<double>> dh_params_body_;
@@ -37,14 +46,14 @@ private:
     std::vector<std::tuple<double, double, double>> current_path_;
     std::vector<std::tuple<double, double, double>> smoothed_path_;
 
-    double MOVE_THETA_THRESHOLD_ = 0.3;
+    const double MOVE_THETA_THRESHOLD_ = 0.008;
 
 public:
     /**
      * Constructor - Initialize the robot controller with JSON config
      * @param json_config_path Path to JSON config file (e.g., darwin_02.json)
      */
-    explicit RobotCtrl(const std::string& json_config_path);
+    explicit RobotCtrl(const std::string& json_config_path = "");
 
     /**
      * Load configuration from JSON file
@@ -187,10 +196,48 @@ public:
     std::vector<std::tuple<double, double, double>> getCurrentPath() const { return current_path_; }
     std::vector<std::tuple<double, double, double>> getSmoothedPath() const { return smoothed_path_; }
 
+    /**
+     * Load robot model from URDF file
+     * @param urdf_file_path Path to URDF file
+     * @return true if successful, false otherwise
+     */
+    bool loadUrdfModel(const std::string& urdf_file_path);
 
+    /**
+     * Check for self-collisions in the robot given current joint configuration
+     * @param joint_positions Map of joint names to positions
+     * @return true if self-collision detected, false otherwise
+     */
+    bool checkSelfCollision(const std::map<std::string, double>& joint_positions);
 
+    /**
+     * Check for collision between specific robot links
+     * @param link1_name First link name
+     * @param link2_name Second link name
+     * @param joint_positions Map of joint names to positions
+     * @return true if collision detected, false otherwise
+     */
+    bool checkCollisionBetweenLinks(const std::string& link1_name, 
+        const std::string& link2_name, 
+        const std::map<std::string, double>& joint_positions);
 
+    /**
+     * Check for collisions with environment obstacles
+     * @param joint_positions Map of joint names to positions
+     * @param obstacles Vector of obstacles, each obstacle is [x, y, z, radius]
+     * @return true if collision detected, false otherwise
+     */
+    bool checkEnvironmentCollision(const std::map<std::string, double>& joint_positions,
+        const std::vector<std::vector<double>>& obstacles);
+
+    /**
+     * Check for collisions along a trajectory of joint angles
+     * @param trajectory Vector of joint angle sets forming a trajectory
+     * @return true if any collision detected along trajectory, false otherwise
+     */
+    bool checkTrajectoryCollision(const std::vector<std::vector<double>>& trajectory);
 };
+
 
 } // namespace arm_robot
 

@@ -1,4 +1,6 @@
 #include "robot_ctrl.h"
+#include "urdf_processor.h"
+#include "collision_detector.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -6,8 +8,14 @@
 
 namespace arm_robot {
 
+// Forward declaration of the URDF processor and collision detector
+static std::shared_ptr<UrdfProcessor> urdf_processor_ = nullptr;
+static std::shared_ptr<CollisionDetector> collision_detector_ = nullptr;
+
 RobotCtrl::RobotCtrl(const std::string& json_config_path) {
-    loadConfig(json_config_path);
+    if (!json_config_path.empty()) {
+        loadConfig(json_config_path);
+    }
     initRobot();
 }
 
@@ -115,6 +123,15 @@ void RobotCtrl::initRobot() {
         theta_limit_input
     );
     
+    // Create robot copy for planning
+    robot_copy_ = std::make_shared<Human>(
+        dh_params_body_,
+        dh_params_left_hand_,
+        dh_params_right_hand_,
+        empty_head_dh,
+        theta_limit_input
+    );
+    
     resetToInitialPosition();
 }
 
@@ -136,6 +153,9 @@ void RobotCtrl::resetToInitialPosition() {
         }
         
         robot_->flashTheta(initial_theta);
+        if (robot_copy_) {
+            robot_copy_->flashTheta(initial_theta);
+        }
     }
 }
 
@@ -275,8 +295,9 @@ std::vector<std::vector<double>> RobotCtrl::smoothJointAngles(
 
     // 校验输入参数维度一致性
     int num_joints = thetas[0].size();
-    if (theta_min.size() != num_joints || theta_max.size() != num_joints) {
-        throw std::invalid_argument("theta_min/theta_max的长度必须和关节数一致");
+    if (theta_min.cols() != 2 || theta_max.cols() != 2 || 
+        theta_min.rows() != num_joints || theta_max.rows() != num_joints) {
+        throw std::invalid_argument("theta_min/theta_max的行数必须和关节数一致");
     }
 
     std::vector<std::vector<double>> smoothed_thetas;
@@ -284,7 +305,7 @@ std::vector<std::vector<double>> RobotCtrl::smoothJointAngles(
 
     // 辅助函数：检查单个关节角度是否在限位内
     auto is_joint_within_limits = [&](double angle, int joint_idx) {
-        return (angle >= theta_min(joint_idx, 0)) && (angle <= theta_max(joint_idx, 0));
+        return (angle >= theta_min(joint_idx, 0)) && (angle <= theta_max(joint_idx, 1));
     };
 
     // 遍历所有时间步，逐点平滑
@@ -302,8 +323,8 @@ std::vector<std::vector<double>> RobotCtrl::smoothJointAngles(
                 adjusted_curr[j] = curr[j];  
             }
             else{
-                if(curr[j] > theta_max(j, 0)){
-                    adjusted_curr[j] = theta_max(j, 0);
+                if(curr[j] > theta_max(j, 1)){
+                    adjusted_curr[j] = theta_max(j, 1);
                 }
                 else{
                     adjusted_curr[j] = theta_min(j, 0);
@@ -341,6 +362,9 @@ void RobotCtrl::syncBodyAndCopy() {
 }
 
 bool RobotCtrl::isSameTheta(std::string part_name, double theta_threshold) { 
+    if (!robot_ || !robot_copy_) {
+        return false;
+    }
     std::vector<double> body = robot_->getPart(part_name)->getTheta();
     std::vector<double> body_copy = robot_copy_->getPart(part_name)->getTheta();
     for (int i = 0; i < body.size(); i++) {
@@ -355,6 +379,10 @@ std::pair<bool, std::vector<std::vector<double>>> RobotCtrl::findFollowPath(cons
     const std::string& part_name,
     bool ignore_angle){
 
+    if (!robot_copy_) {
+        return std::make_pair(false, std::vector<std::vector<double>>());
+    }
+    
     std::shared_ptr<Body> part = robot_copy_->getPart(part_name);  
     Eigen::Matrix4d part_base = robot_copy_->getPartBase(part_name);  
     Eigen::Matrix4d start_mat = robot_copy_->getEefByName(part_name);  
@@ -411,7 +439,11 @@ std::pair<bool, std::vector<std::vector<double>>> RobotCtrl::findFollowPath(cons
 std::pair<bool, std::vector<std::vector<double>>> RobotCtrl::goAim(const Eigen::Matrix4d& aim_mat,const std::string& part_name,
     bool ignore_angle){
 
-        return robot_copy_->controlPart(aim_mat, part_name, ignore_angle);  
+    if (!robot_copy_) {
+        return std::make_pair(false, std::vector<std::vector<double>>());
+    }
+    
+    return robot_copy_->controlPart(aim_mat, part_name, ignore_angle);  
 }
 
 std::vector<double> RobotCtrl::moveViaVelocity(const std::string& part_name, Eigen::VectorXd vel){
@@ -542,6 +574,80 @@ std::vector<std::vector<double>> RobotCtrl::jointInterpolation(const std::vector
         }
 
         return tehtas_can;
+}
+
+// Implementation of URDF-based collision detection methods
+
+bool RobotCtrl::loadUrdfModel(const std::string& urdf_file_path) {
+    urdf_collision_checker = std::make_unique<UrdfCollisionChecker>();
+    
+    if (!urdf_collision_checker->loadModelFromFile(urdf_file_path)) {
+        std::cerr << "Failed to load URDF model from: " << urdf_file_path << std::endl;
+        return false;
+    }
+    
+    if (!urdf_collision_checker->setupCollisionGeometries()) {
+        std::cerr << "Failed to set up collision geometries from URDF" << std::endl;
+        return false;
+    }
+    
+    return true;
+}
+
+bool RobotCtrl::checkSelfCollision(const std::map<std::string, double>& joint_positions) {
+    if (!urdf_collision_checker) {
+        std::cerr << "URDF collision checker not initialized. Call loadUrdfModel first." << std::endl;
+        return false;
+    }
+    
+    return urdf_collision_checker->checkSelfCollision(joint_positions);
+}
+
+bool RobotCtrl::checkCollisionBetweenLinks(const std::string& link1_name, 
+                                          const std::string& link2_name, 
+                                          const std::map<std::string, double>& joint_positions) {
+    if (!urdf_collision_checker) {
+        std::cerr << "URDF collision checker not initialized. Call loadUrdfModel first." << std::endl;
+        return false;
+    }
+    
+    return urdf_collision_checker->checkCollisionBetweenLinks(link1_name, link2_name, joint_positions);
+}
+
+bool RobotCtrl::checkEnvironmentCollision(const std::map<std::string, double>& joint_positions,
+                                         const std::vector<std::vector<double>>& obstacles) {
+    if (!urdf_collision_checker) {
+        std::cerr << "URDF collision checker not initialized. Call loadUrdfModel first." << std::endl;
+        return false;
+    }
+    
+    return urdf_collision_checker->checkEnvironmentCollision(joint_positions, obstacles);
+}
+
+bool RobotCtrl::checkTrajectoryCollision(const std::vector<std::vector<double>>& trajectory) {
+    if (!urdf_collision_checker) {
+        std::cerr << "URDF collision checker not initialized. Call loadUrdfModel first." << std::endl;
+        return false; // Assume no collision if not initialized
+    }
+    
+    // Convert trajectory to joint position maps and check each point
+    for (const auto& waypoint : trajectory) {
+        // This assumes we have a mapping from joint indices to names
+        // In a real implementation, you'd need to map joint values to their names
+        std::map<std::string, double> joint_positions;
+        
+        // Here we're assuming joint names follow a pattern like "joint0", "joint1", etc.
+        // This would need to be adapted to your specific robot's joint naming
+        for (size_t i = 0; i < waypoint.size(); ++i) {
+            joint_positions["joint" + std::to_string(i)] = waypoint[i];
+        }
+        
+        if (checkSelfCollision(joint_positions)) {
+            return true; // Collision detected
+        }
+    }
+    
+    return false; // No collision detected
 }
 
 } // namespace arm_robot
