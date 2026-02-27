@@ -107,6 +107,34 @@ std::vector<double> angle_limit(const std::vector<double>& theta,
     return result;
 }
 
+// 添加角度变化限制函数，防止角度突变
+std::vector<double> limit_angle_change(
+    const std::vector<double>& current_theta,
+    const std::vector<double>& target_theta,
+    const std::vector<double>& max_delta_theta) {
+    
+    std::vector<double> result = target_theta;
+    
+    for (size_t i = 0; i < current_theta.size() && i < target_theta.size(); ++i) {
+        double delta = target_theta[i] - current_theta[i];
+        
+        // 角度归一化处理，处理跨越±π的情况
+        delta = angle_normal(delta);
+        
+        // 限制角度变化幅度
+        double max_change = max_delta_theta.empty() ? M_PI/18.0 : // 默认10度变化限制
+                           (i < max_delta_theta.size() ? max_delta_theta[i] : max_delta_theta.back());
+        
+        if (delta > max_change) {
+            result[i] = current_theta[i] + max_change;
+        } else if (delta < -max_change) {
+            result[i] = current_theta[i] - max_change;
+        }
+    }
+    
+    return result;
+}
+
 Eigen::MatrixXd pseudoInverse(const Eigen::MatrixXd& mat, double epsilon) {
     // 步骤1：对矩阵做奇异值分解（SVD）
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(mat, Eigen::ComputeThinU | Eigen::ComputeThinV);
@@ -199,9 +227,7 @@ std::pair<bool, std::vector<std::vector<double>>> cal_qpos(
         track.push_back(T[0].block<3, 1>(0, 3));
         theta_can.push_back(now_theta);
 
-        std::cout << "Iteration: " << cal_times << "  Error: " << err_s << " " << err_theta << std::endl;
-
-        if (err_s < 0.0005 && err_theta < 0.001) {
+        if (err_s < 0.00005 && err_theta < 0.001) {
             get_aim = true;
             break;
         }
@@ -294,7 +320,7 @@ std::pair<bool, std::vector<std::vector<double>>> cal_qpos(
                 val = dis(gen);
             }
         }
-
+        
         new_theta = angle_normal(new_theta);
 
         Eigen::MatrixXd limited_theta = get_theta_limit(new_theta);
@@ -397,13 +423,16 @@ std::vector<double> cal_qpos_v(
     std::vector<double> new_theta(new_theta_vec.data(), 
                                  new_theta_vec.data() + new_theta_vec.size());
 
-    new_theta = angle_normal(new_theta);
+    // 添加角度变化限制，防止角度突变
+    std::vector<double> max_delta_theta(start_theta.size(), M_PI/180.0); // 默认1度变化限制
+    new_theta = limit_angle_change(now_theta, new_theta, max_delta_theta);
 
+    new_theta = angle_normal(new_theta);
     Eigen::MatrixXd limited_theta = get_theta_limit(new_theta);
     for (size_t i = 0; i < new_theta.size(); ++i) {
         new_theta[i] = std::max(limited_theta(i, 0), std::min(limited_theta(i, 1), new_theta[i]));
     }
-
+    
     return new_theta;
 }
 

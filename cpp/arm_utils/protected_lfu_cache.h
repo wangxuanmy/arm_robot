@@ -104,6 +104,34 @@ public:
     }
 
     /**
+     * @brief 删除指定键的缓存项
+     * @param key 要删除的键
+     * @return 是否成功删除
+     */
+    bool remove(const KeyType& key) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        auto it = data_.find(key);
+        if (it == data_.end()) {
+            return false;  // 键不存在
+        }
+
+        // 获取创建时间用于从时间排序集合中删除
+        TimePoint creation_time = create_times_[key];
+
+        // 删除所有相关数据
+        data_.erase(it);
+        counts_.erase(key);
+        create_times_.erase(key);
+
+        // 从时间排序集合中删除对应的项
+        TimeKeyPair to_remove{creation_time, key};
+        time_sorted_keys_.erase(to_remove);
+
+        return true;
+    }
+
+    /**
      * @brief 获取缓存大小
      * @return 缓存项数量
      */

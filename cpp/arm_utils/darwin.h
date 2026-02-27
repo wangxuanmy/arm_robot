@@ -4,6 +4,7 @@
 #include "body_base.h"
 #include "coord.h"
 #include "quaternion_utils.h"
+#include "marvin_base.hpp"
 #include <vector>
 #include <Eigen/Dense>
 #include <map>
@@ -13,14 +14,15 @@
 namespace arm_robot {
 
 class Human {
-private:
-    Body body_;
-    Body left_hand_;
-    Body right_hand_;
-    Body head_;
+public:
     std::map<std::string, int> hand_id_;
+
+private:
+    std::shared_ptr<Body> body_ptr_;
+    std::shared_ptr<Body> left_hand_ptr_;
+    std::shared_ptr<Body> right_hand_ptr_;
+    std::shared_ptr<Body> head_ptr_;
     int num_joints_;
-    std::vector<double> theta_;
     Eigen::MatrixXd theta_limit_;
     std::map<std::string, Eigen::Matrix4d> base_tf_;
 
@@ -30,7 +32,8 @@ public:
           const std::vector<std::vector<double>>& right_hand_dh,
           const std::vector<std::vector<double>>& head_dh,
           const Eigen::MatrixXd& theta_limit_input = Eigen::MatrixXd(),
-          const Eigen::MatrixXd& base_offset = Eigen::MatrixXd());
+          const Eigen::MatrixXd& base_offset = Eigen::MatrixXd(),
+          const std::vector<std::string>& arm_types = {});
 
     void flashTheta(const std::vector<double>& theta_input);
 

@@ -61,7 +61,7 @@ public:
     }
 
     
-    Eigen::MatrixXd getThetaLimit(const std::vector<double>& jointValue) override { return getJointLimit(jointValue, thetaLimit_); }
+    Eigen::MatrixXd getThetaLimit(const std::vector<double>& jointValue) override { return getJointLimit(jointValue, theta_limit_); }
 };
 
 
