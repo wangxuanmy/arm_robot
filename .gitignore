@@ -92,3 +92,5 @@ test_*.log
 test_output/
 # 机器人控制日志
 robot_logs/
+*.xlsx
+*.png
